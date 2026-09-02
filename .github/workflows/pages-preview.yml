@@ -3,7 +3,7 @@ name: Deploy 13-STC change viewer to GitHub Pages
 on:
   push:
     branches:
-      - feature/13-stc-monthly-superres-v1
+      - main
     paths:
       - 'web/**'
       - '.github/workflows/pages-preview.yml'
@@ -63,16 +63,15 @@ jobs:
 
       - name: Setup Pages
         id: pages
-        continue-on-error: true
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages artifact
-        if: steps.pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v4
         with:
           path: web/public
 
       - name: Deploy Pages
-        if: steps.pages.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
