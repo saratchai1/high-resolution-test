@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>13-STC Monthly Sentinel-2</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>13-STC · Monthly Sentinel-2</h1>
+        <p id="status">กำลังโหลดข้อมูล…</p>
+      </div>
+      <div class="controls">
+        <label>เดือน <select id="month"></select></label>
+        <button id="reset" type="button">Reset</button>
+      </div>
+    </header>
+    <section class="viewer" id="viewer">
+      <div class="plane" id="plane">
+        <img id="base" draggable="false" alt="Sentinel-2 native" />
+        <div class="clip" id="clip"><img id="detail" draggable="false" alt="Sentinel-2 super-resolution" /></div>
+      </div>
+      <div class="divider" id="divider"><span></span></div>
+    </section>
+    <footer><span id="leftLabel">Native</span><span id="rightLabel">Super-resolution</span></footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
