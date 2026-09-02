@@ -12,6 +12,17 @@ on:
       - 'scripts/superres/**'
       - 'requirements.txt'
       - 'requirements-dev.txt'
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/monthly-superres.yml'
+      - 'config/superres/**'
+      - 'data/aoi/**'
+      - 'scripts/superres/**'
+      - 'requirements.txt'
+      - 'requirements-dev.txt'
 
 permissions:
   contents: write
