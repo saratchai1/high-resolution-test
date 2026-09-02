@@ -2,16 +2,6 @@ name: 13-STC monthly Sentinel-2 super-resolution
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/13-stc-monthly-superres-v1
-    paths:
-      - '.github/workflows/monthly-superres.yml'
-      - 'config/superres/**'
-      - 'data/aoi/**'
-      - 'scripts/superres/**'
-      - 'requirements.txt'
-      - 'requirements-dev.txt'
   pull_request:
     branches:
       - main
