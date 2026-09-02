@@ -11,8 +11,8 @@ source:
   stac_api: https://earth-search.aws.element84.com/v1
   collection: sentinel-2-l2a
   max_scene_cloud_percent: 85
-  max_scenes_per_month: 20
-  fallback_days_each_side: 12
+  max_scenes_per_month: 40
+  fallback_days_each_side: 20
 cloud_mask:
   scl_clear_classes: [2, 4, 5, 6, 7]
   min_composite_valid_fraction: 0.95
