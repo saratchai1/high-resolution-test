@@ -11,11 +11,12 @@ source:
   stac_api: https://earth-search.aws.element84.com/v1
   collection: sentinel-2-l2a
   max_scene_cloud_percent: 85
-  max_scenes_per_month: 40
-  fallback_days_each_side: 20
+  max_scenes_per_month: 80
+  fallback_windows_days: [20, 35, 50]
 cloud_mask:
   scl_clear_classes: [2, 4, 5, 6, 7]
   min_composite_valid_fraction: 0.95
+  min_context_valid_fraction: 0.90
 bands:
   - red
   - green
