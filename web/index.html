@@ -3,29 +3,79 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>13-STC Monthly Sentinel-2</title>
+  <meta name="theme-color" content="#08111f" />
+  <title>13-STC · 36-Month Change Viewer</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main>
-    <header>
+  <main class="app-shell">
+    <header class="hero">
       <div>
-        <h1>13-STC · Monthly Sentinel-2</h1>
-        <p id="status">กำลังโหลดข้อมูล…</p>
+        <div class="eyebrow">13-STC · ระยอง · Sentinel-2 L2A</div>
+        <h1>ดูการเปลี่ยนแปลง 36 เดือน</h1>
+        <p id="status" aria-live="polite">กำลังโหลดข้อมูล…</p>
       </div>
-      <div class="controls">
-        <label>เดือน <select id="month"></select></label>
-        <button id="reset" type="button">Reset</button>
+      <div class="hero-actions">
+        <button id="prev" type="button" aria-label="เดือนก่อนหน้า">←</button>
+        <button id="play" type="button">▶ เล่น</button>
+        <button id="next" type="button" aria-label="เดือนถัดไป">→</button>
       </div>
     </header>
-    <section class="viewer" id="viewer">
-      <div class="plane" id="plane">
-        <img id="base" draggable="false" alt="Sentinel-2 native" />
-        <div class="clip" id="clip"><img id="detail" draggable="false" alt="Sentinel-2 super-resolution" /></div>
+
+    <section class="timeline-card" aria-label="ตัวเลือกเดือน">
+      <div class="timeline-head">
+        <div>
+          <span class="label">เดือนที่เลือก</span>
+          <strong id="monthLabel">—</strong>
+        </div>
+        <div class="timeline-meta"><span>ก.ย. 2023</span><span>36 เดือน</span><span>ส.ค. 2026</span></div>
       </div>
-      <div class="divider" id="divider"><span></span></div>
+      <input id="timeline" class="range timeline" type="range" min="0" max="35" step="1" value="35" aria-label="เลื่อนดูเดือน" />
+      <div class="year-marks" aria-hidden="true"><span>2023</span><span>2024</span><span>2025</span><span>2026</span></div>
     </section>
-    <footer><span id="leftLabel">Native</span><span id="rightLabel">Super-resolution</span></footer>
+
+    <section class="viewer-card">
+      <div class="viewer-toolbar">
+        <div class="segmented" role="group" aria-label="ชั้นข้อมูล">
+          <span class="legend-dot native-dot"></span><span>10 m เดิม</span>
+          <span class="legend-dot sr-dot"></span><span>~2.5 m LDSR-S2</span>
+        </div>
+        <div class="tool-actions">
+          <label class="toggle"><input id="boundaryToggle" type="checkbox" checked /><span>กรอบ KMZ</span></label>
+          <button id="zoomOut" type="button" aria-label="ซูมออก">−</button>
+          <button id="zoomIn" type="button" aria-label="ซูมเข้า">＋</button>
+          <button id="reset" type="button">Reset</button>
+        </div>
+      </div>
+
+      <div class="viewer" id="viewer" tabindex="0" aria-label="ภาพ Sentinel-2 สามารถลากเพื่อเลื่อนเมื่อซูมเข้า">
+        <div class="plane" id="plane">
+          <img id="base" class="scene-img" draggable="false" alt="Sentinel-2 native 10 metre composite" />
+          <img id="detail" class="scene-img detail-img" draggable="false" alt="Sentinel-2 LDSR-S2 super-resolution" />
+          <svg id="boundary" class="boundary" viewBox="0 0 512 512" preserveAspectRatio="none" aria-label="ขอบเขตแปลง 13-STC จาก KMZ">
+            <path id="boundaryPath" fill-rule="evenodd"></path>
+          </svg>
+          <div class="divider" id="divider"><span>↔</span></div>
+        </div>
+        <div class="image-chip chip-left">10 m</div>
+        <div class="image-chip chip-right">~2.5 m</div>
+        <div class="kmz-chip" id="kmzChip"><b>13-STC</b><span>KMZ · 263.07 ไร่</span></div>
+      </div>
+
+      <div class="swipe-control">
+        <div class="swipe-label"><span>10 m เดิม</span><strong>เลื่อนเปรียบเทียบความละเอียด</strong><span>~2.5 m</span></div>
+        <input id="swipe" class="range" type="range" min="0" max="100" step="1" value="62" aria-label="เปรียบเทียบภาพ 10 เมตรกับ super-resolution" />
+      </div>
+    </section>
+
+    <section class="stats" aria-label="รายละเอียดเดือน">
+      <article><span>Clear coverage</span><strong id="validStat">—</strong></article>
+      <article><span>Sentinel-2 scenes</span><strong id="sceneStat">—</strong></article>
+      <article><span>Cloud fallback</span><strong id="fallbackStat">—</strong></article>
+      <article><span>Reference</span><strong>12.707884, 101.693164</strong></article>
+    </section>
+
+    <p class="note">กรอบสีเหลืองคือขอบเขต 13-STC จากไฟล์ STC_VSD_EVR(1).kmz ระเบียน “ยืนยันกรม” 263.07 ไร่ · ภาพ ~2.5 m เป็น model-reconstructed grid จาก Sentinel-2 10 m ไม่ใช่ native sensor resolution.</p>
   </main>
   <script src="app.js"></script>
 </body>
