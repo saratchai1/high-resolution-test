@@ -16,6 +16,14 @@ const boundaryPath = document.getElementById('boundaryPath');
 const boundaryToggle = document.getElementById('boundaryToggle');
 const kmzChip = document.getElementById('kmzChip');
 
+// Optional remote asset root. The Vercel deployment uses the published files on
+// the main branch directly, while local/GitHub Pages builds keep relative paths.
+const ASSET_BASE = String(window.ASSET_BASE || '');
+function assetUrl(src) {
+  if (/^https?:\/\//i.test(src)) return src;
+  return `${ASSET_BASE}${src}`;
+}
+
 const KMZ_PATH = 'M 80.4 181.6 L 61.2 238.4 L 137.9 266.6 L 137.9 266.2 L 132.8 260.3 L 63.1 236.6 L 78.5 187.2 L 78.3 190.7 L 65.9 235.1 L 70.1 238.3 L 140.4 261.2 L 157.6 212.7 L 184.9 127.0 L 186.2 127.4 L 159.7 213.3 L 146.7 254.5 L 139.9 266.5 L 138.6 270.9 L 109.4 293.6 L 107.9 300.2 L 113.1 313.6 L 174.3 424.8 L 181.4 426.2 L 265.4 380.9 L 331.2 345.8 L 332.7 347.5 L 266.2 383.3 L 177.8 429.8 L 194.4 459.0 L 191.4 460.2 L 173.0 425.6 L 112.1 314.1 L 106.4 302.0 L 107.4 293.4 L 137.2 270.5 L 137.6 268.3 L 114.8 280.8 L 100.0 291.2 L 44.8 329.2 L 61.6 348.0 L 107.2 379.6 L 134.0 414.0 L 169.6 470.0 L 330.0 414.0 L 440.4 321.6 L 456.4 313.2 L 460.4 283.2 L 455.2 282.4 L 334.4 346.8 L 274.8 234.4 L 122.8 316.0 L 116.4 310.4 L 179.2 274.0 L 242.8 227.6 L 260.4 203.2 L 260.0 196.4 L 226.0 159.6 L 218.4 139.2 L 180.8 125.2 L 186.0 112.8 L 147.2 89.2 L 134.8 59.6 L 118.4 51.6 L 80.4 181.6 Z M 97.2 147.2 L 116.0 152.0 L 120.4 155.6 L 131.2 158.4 L 130.4 164.8 L 95.2 154.0 L 97.2 147.2 Z';
 boundaryPath.setAttribute('d', KMZ_PATH);
 
@@ -106,7 +114,7 @@ function preloadAround(i) {
     if (!e) return;
     [e.native, e.superres].forEach((src) => {
       const img = new Image();
-      img.src = src;
+      img.src = assetUrl(src);
     });
   });
 }
@@ -118,8 +126,8 @@ function loadEntry(nextIndex, reset = false) {
   timeline.value = String(index);
   timeline.setAttribute('aria-valuetext', monthText(entry.month));
 
-  base.src = entry.native;
-  detail.src = entry.superres;
+  base.src = assetUrl(entry.native);
+  detail.src = assetUrl(entry.superres);
   monthLabel.textContent = monthText(entry.month);
 
   const valid = Number(entry.valid_fraction || 0);
@@ -139,7 +147,7 @@ function moveMonth(delta) {
   loadEntry(index + delta, false);
 }
 
-fetch('data/superres25/summary.json', { cache: 'no-store' })
+fetch(assetUrl('data/superres25/summary.json'), { cache: 'no-store' })
   .then((response) => {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
