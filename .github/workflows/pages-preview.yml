@@ -52,14 +52,27 @@ jobs:
           cp web/app.js web/public/app.js
           touch web/public/.nojekyll
 
+      - name: Upload standalone static-site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 13-stc-36-month-change-viewer
+          path: web/public
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+
       - name: Setup Pages
+        id: pages
+        continue-on-error: true
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: steps.pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v4
         with:
           path: web/public
 
       - name: Deploy Pages
+        if: steps.pages.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
