@@ -33,6 +33,16 @@ def _merge_unique(existing: list[dict], incoming: list[dict]) -> list[dict]:
     return existing + [item for item in incoming if item.get("id") not in seen]
 
 
+def _try_composite(items, crs, transform, patch_size, clear_classes):
+    """Return an empty valid mask instead of aborting when every scene is cloud-masked."""
+    try:
+        return _composite(items, crs, transform, patch_size, clear_classes)
+    except RuntimeError as exc:
+        if "No readable Sentinel-2 candidates with valid RGB/NIR pixels" not in str(exc):
+            raise
+        return None, np.zeros((patch_size, patch_size), dtype=bool), [], []
+
+
 def process_one(cfg: dict, month_window) -> dict:
     feature, aoi = load_aoi(cfg["geometry"])
     reference_lon = float(cfg["reference_point"]["lon"])
@@ -74,7 +84,7 @@ def process_one(cfg: dict, month_window) -> dict:
         raise RuntimeError("AOI does not cover any target-grid pixels")
 
     used_search_items = list(month_items)
-    native, valid_mask, used, clear_fracs = _composite(
+    native, valid_mask, used, clear_fracs = _try_composite(
         used_search_items, crs, transform, patch_size, clear_classes
     )
     aoi_valid_fraction, context_valid_fraction = _fractions(valid_mask, aoi_mask)
@@ -88,6 +98,7 @@ def process_one(cfg: dict, month_window) -> dict:
                 "aoi_valid_fraction": aoi_valid_fraction,
                 "context_valid_fraction": context_valid_fraction,
                 "candidate_items": len(used_search_items),
+                "usable_items": len(used),
             },
             indent=2,
         )
@@ -103,24 +114,37 @@ def process_one(cfg: dict, month_window) -> dict:
             month_window.end + timedelta(days=days),
         )
         used_search_items = _merge_unique(used_search_items, ext_items)
-        native, valid_mask, used, clear_fracs = _composite(
+        candidate_native, candidate_valid_mask, candidate_used, candidate_clear_fracs = _try_composite(
             used_search_items, crs, transform, patch_size, clear_classes
         )
-        aoi_valid_fraction, context_valid_fraction = _fractions(valid_mask, aoi_mask)
+        candidate_aoi_valid, candidate_context_valid = _fractions(candidate_valid_mask, aoi_mask)
         fallback_days_used = days
         print(
             json.dumps(
                 {
                     "month": month_window.month,
                     "stage": f"fallback_plusminus_{days}d",
-                    "aoi_valid_fraction": aoi_valid_fraction,
-                    "context_valid_fraction": context_valid_fraction,
+                    "aoi_valid_fraction": candidate_aoi_valid,
+                    "context_valid_fraction": candidate_context_valid,
                     "candidate_items": len(used_search_items),
+                    "usable_items": len(candidate_used),
                 },
                 indent=2,
             )
         )
+        if candidate_native is not None:
+            native = candidate_native
+            valid_mask = candidate_valid_mask
+            used = candidate_used
+            clear_fracs = candidate_clear_fracs
+            aoi_valid_fraction = candidate_aoi_valid
+            context_valid_fraction = candidate_context_valid
 
+    if native is None:
+        raise RuntimeError(
+            f"No clear Sentinel-2 RGB/NIR observations found for {month_window.month} "
+            f"within fallback windows {fallback_windows} days"
+        )
     if aoi_valid_fraction < min_aoi_valid:
         raise RuntimeError(
             f"AOI composite valid fraction {aoi_valid_fraction:.3f} below required "
