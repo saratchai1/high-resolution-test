@@ -1,0 +1,39 @@
+name: 13-stc-monthly-superres
+plot_id: 13-STC
+geometry: data/aoi/13-stc-authoritative.geojson
+reference_point:
+  lon: 101.693164
+  lat: 12.707884
+period:
+  start_month: "2023-09"
+  end_month_exclusive: "2026-09"
+source:
+  stac_api: https://earth-search.aws.element84.com/v1
+  collection: sentinel-2-l2a
+  max_scene_cloud_percent: 85
+  max_scenes_per_month: 20
+  fallback_days_each_side: 12
+cloud_mask:
+  scl_clear_classes: [2, 4, 5, 6, 7]
+  min_composite_valid_fraction: 0.95
+bands:
+  - red
+  - green
+  - blue
+  - nir
+processing:
+  patch_size: 128
+  scale: 4
+  output_grid_m: 2.5
+  sampling_steps: 25
+  overlap: 16
+  scale_factor: 10000.0
+  compute_uncertainty: false
+render:
+  percentile_low: 1
+  percentile_high: 99
+  gamma: 1.0
+  web_size: 512
+outputs:
+  root: outputs/superres/13-stc
+  web_data: web/public/data/superres25
