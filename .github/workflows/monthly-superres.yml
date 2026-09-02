@@ -66,11 +66,14 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
 
+      - name: Syntax check processing scripts
+        run: python -m py_compile scripts/superres/common.py scripts/superres/build_month.py scripts/superres/build_month_v2.py
+
       - name: Build three monthly composites and 4x SR outputs
         env:
           PYTHONUNBUFFERED: '1'
         run: >-
-          python scripts/superres/build_month.py
+          python scripts/superres/build_month_v2.py
           --config config/superres/13-stc.yml
           --start ${{ matrix.start }}
           --months 3
