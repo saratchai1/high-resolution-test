@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import warnings
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ import rasterio
 from PIL import Image, ImageStat
 from pyproj import Transformer
 from rasterio.enums import Resampling
+from rasterio.features import geometry_mask
 from rasterio.transform import Affine
 from rasterio.vrt import WarpedVRT
 from rasterio.windows import Window
@@ -124,13 +126,13 @@ def _composite(items: list[dict], crs, transform: Affine, size: int, clear_class
     if not cubes:
         raise RuntimeError("No readable Sentinel-2 candidates with valid RGB/NIR pixels")
     stack = np.stack(cubes, axis=0)
-    with np.errstate(all="ignore"):
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered", category=RuntimeWarning)
         comp = np.nanmedian(stack, axis=0)
     valid = np.all(np.isfinite(comp), axis=0)
-    valid_fraction = float(valid.mean())
     comp = np.nan_to_num(comp, nan=0.0, posinf=0.0, neginf=0.0)
     comp = np.clip(np.rint(comp), 0, 10000).astype(np.uint16)
-    return comp, valid_fraction, used, clear_fracs
+    return comp, valid, used, clear_fracs
 
 
 def _write_native(path: Path, arr: np.ndarray, crs, transform: Affine):
@@ -234,9 +236,21 @@ def process_one(cfg: dict, month_window) -> dict:
             f"Configured {patch_size}x{patch_size} native patch does not cover the full AOI; "
             f"outside area={missing_area:.1f} m2"
         )
-    native, valid_fraction, used, clear_fracs = _composite(items, crs, transform, patch_size, clear_classes)
+    aoi_mask = geometry_mask(
+        [mapping(aoi_projected)],
+        out_shape=(patch_size, patch_size),
+        transform=transform,
+        invert=True,
+        all_touched=False,
+    )
+    if not np.any(aoi_mask):
+        raise RuntimeError("AOI does not cover any target-grid pixels")
+
+    native, valid_mask, used, clear_fracs = _composite(items, crs, transform, patch_size, clear_classes)
+    context_valid_fraction = float(valid_mask.mean())
+    aoi_valid_fraction = float(valid_mask[aoi_mask].mean())
     fallback_used = False
-    if valid_fraction < min_valid:
+    if aoi_valid_fraction < min_valid:
         days = int(cfg["source"].get("fallback_days_each_side", 0))
         if days > 0:
             ext_items = _stac_search(
@@ -247,11 +261,14 @@ def process_one(cfg: dict, month_window) -> dict:
             )
             seen = {x.get("id") for x in items}
             merged = items + [x for x in ext_items if x.get("id") not in seen]
-            native, valid_fraction, used, clear_fracs = _composite(merged, crs, transform, patch_size, clear_classes)
+            native, valid_mask, used, clear_fracs = _composite(merged, crs, transform, patch_size, clear_classes)
+            context_valid_fraction = float(valid_mask.mean())
+            aoi_valid_fraction = float(valid_mask[aoi_mask].mean())
             fallback_used = True
-    if valid_fraction < min_valid:
+    if aoi_valid_fraction < min_valid:
         raise RuntimeError(
-            f"Composite valid fraction {valid_fraction:.3f} below required {min_valid:.3f} for {month_window.month}"
+            f"AOI composite valid fraction {aoi_valid_fraction:.3f} below required {min_valid:.3f} "
+            f"for {month_window.month} (context={context_valid_fraction:.3f})"
         )
 
     month_dir = Path(cfg["outputs"]["root"]) / month_window.month
@@ -329,7 +346,9 @@ def process_one(cfg: dict, month_window) -> dict:
         "processing": {
             "cloud_mask": "Sentinel-2 SCL clear classes + multi-scene masked median",
             "scl_clear_classes": sorted(clear_classes),
-            "composite_valid_fraction": round(valid_fraction, 6),
+            "composite_valid_fraction": round(aoi_valid_fraction, 6),
+            "aoi_valid_fraction": round(aoi_valid_fraction, 6),
+            "context_valid_fraction": round(context_valid_fraction, 6),
             "native_rgb_nonzero_fraction": round(nonzero_fraction, 6),
             "band_order": ["B04 Red", "B03 Green", "B02 Blue", "B08 NIR"],
             "model": "LDSR-S2 / OpenSR via geoai-py",
@@ -354,7 +373,12 @@ def process_one(cfg: dict, month_window) -> dict:
         },
     }
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({"month": month_window.month, "valid_fraction": valid_fraction, "items": len(item_meta)}, indent=2))
+    print(json.dumps({
+        "month": month_window.month,
+        "aoi_valid_fraction": aoi_valid_fraction,
+        "context_valid_fraction": context_valid_fraction,
+        "items": len(item_meta),
+    }, indent=2))
     gc.collect()
     return metadata
 
