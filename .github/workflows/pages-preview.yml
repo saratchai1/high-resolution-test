@@ -1,0 +1,65 @@
+name: Deploy 13-STC change viewer to GitHub Pages
+
+on:
+  push:
+    branches:
+      - feature/13-stc-monthly-superres-v1
+    paths:
+      - 'web/**'
+      - '.github/workflows/pages-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate viewer assets
+        run: |
+          node --check web/app.js
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('web/public/data/superres25/summary.json')
+          data = json.loads(p.read_text())
+          assert data['period']['months'] == 36
+          assert len(data['entries']) == 36
+          for e in data['entries']:
+              for key in ('native', 'superres'):
+                  asset = Path('web/public') / e[key]
+                  assert asset.exists(), asset
+          print('viewer assets OK: 36 months')
+          PY
+
+      - name: Assemble static site root
+        run: |
+          cp web/index.html web/public/index.html
+          cp web/styles.css web/public/styles.css
+          cp web/app.js web/public/app.js
+          touch web/public/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/public
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
