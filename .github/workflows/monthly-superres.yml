@@ -1,0 +1,133 @@
+name: 13-STC monthly Sentinel-2 super-resolution
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/13-stc-monthly-superres-v1
+    paths:
+      - '.github/workflows/monthly-superres.yml'
+      - 'config/superres/**'
+      - 'data/aoi/**'
+      - 'scripts/superres/**'
+      - 'requirements.txt'
+      - 'requirements-dev.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: 13-stc-monthly-superres-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build ${{ matrix.start }} +3mo
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        start:
+          - '2023-09'
+          - '2023-12'
+          - '2024-03'
+          - '2024-06'
+          - '2024-09'
+          - '2024-12'
+          - '2025-03'
+          - '2025-06'
+          - '2025-09'
+          - '2025-12'
+          - '2026-03'
+          - '2026-06'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Build three monthly composites and 4x SR outputs
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: >-
+          python scripts/superres/build_month.py
+          --config config/superres/13-stc.yml
+          --start ${{ matrix.start }}
+          --months 3
+
+      - name: Upload generated raster/web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: superres-${{ matrix.start }}
+          path: outputs/superres/13-stc/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 1
+
+  publish:
+    name: assemble + validate 36 months
+    needs: build
+    if: ${{ always() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/13-stc-monthly-superres-v1
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install publish dependencies
+        run: pip install 'Pillow>=10,<12' 'PyYAML>=6,<7' 'shapely>=2,<3'
+
+      - name: Download all monthly artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: superres-*
+          path: _artifacts
+          merge-multiple: true
+
+      - name: Assemble web dataset
+        run: >-
+          python scripts/superres/assemble_dataset.py
+          --artifact-root _artifacts
+          --config config/superres/13-stc.yml
+
+      - name: Validate complete dataset
+        run: python scripts/superres/validate_dataset.py
+
+      - name: Commit lightweight web assets to feature branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add web/public/data/superres25 outputs/manifests/13-stc-monthly-summary.json
+          if git diff --cached --quiet; then
+            echo 'No web dataset changes to commit.'
+          else
+            git commit -m 'data: publish 13-STC 36-month super-resolution dataset [skip ci]'
+            git push origin HEAD:feature/13-stc-monthly-superres-v1
+          fi
+
+      - name: Upload complete 36-month processing artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 13-stc-36-month-superres
+          path: |
+            _artifacts
+            outputs/manifests/13-stc-monthly-summary.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 1
